@@ -16,14 +16,12 @@
 // By default, uncover prints file names relative to the current
 // directory when appropriate. The -l flag forces it to print absolute (long)
 // file names.
-//
 package main
 
 import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -77,7 +75,7 @@ func uncover(profile string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		src, err := ioutil.ReadFile(file)
+		src, err := os.ReadFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("can't read %q: %v", fn, err)
 		}
