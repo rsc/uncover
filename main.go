@@ -7,16 +7,19 @@
 // Usage:
 //
 //	go test -coverprofile=c.out
-//	uncover [-l] c.out
+//	uncover [-a] [-l] c.out
 //
 // Uncover prints a sequence of blocks, one for each uncovered
 // section of code. Each block consists of a file address on a line
 // by itself followed by the text of the code on those lines.
 //
-// By default, uncover prints file names relative to the current
-// directory when appropriate. The -l flag forces it to print absolute (long)
-// file names.
+// Uncover elides blocks that begin with a line that starts with
+// “// unreachable”, “// untested”, “// Unreachable”, or “// Untested”.
+// The -a flag causes uncover to report these blocks too.
 //
+// By default, uncover prints file names relative to the current
+// directory when that makes the names shorter.
+// The -l flag forces it to print absolute (long) file names.
 package main
 
 import (
@@ -31,7 +34,10 @@ import (
 	"unicode/utf8"
 )
 
-var longNames = flag.Bool("l", false, "print long file names")
+var (
+	showAll   = flag.Bool("a", false, "show uncovered blocks commented as unreachable/untested")
+	longNames = flag.Bool("l", false, "print long file names")
+)
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "usage: uncover [-l] c.out\n")
@@ -124,6 +130,7 @@ func uncoverFile(buf *bytes.Buffer, file string, src []byte, bounds []Boundary) 
 		return line, lo, hi
 	}
 
+Snippets:
 	for i := 0; i+1 < len(bounds); i += 2 {
 		start := bounds[i]
 		end := bounds[i+1]
@@ -163,6 +170,13 @@ func uncoverFile(buf *bytes.Buffer, file string, src []byte, bounds []Boundary) 
 		}
 
 		snippet := reindent(src[startLo:endHi])
+		if !*showAll {
+			for _, skip := range skips {
+				if bytes.HasPrefix(snippet, skip) {
+					continue Snippets
+				}
+			}
+		}
 
 		var addr string
 		switch {
@@ -184,6 +198,13 @@ func uncoverFile(buf *bytes.Buffer, file string, src []byte, bounds []Boundary) 
 		}
 	}
 	return nil
+}
+
+var skips = [][]byte{
+	[]byte("\t// Unreachable"),
+	[]byte("\t// Untested"),
+	[]byte("\t// unreachable"),
+	[]byte("\t// untested"),
 }
 
 func unimportant(s []byte) bool {
