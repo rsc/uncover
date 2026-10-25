@@ -13,7 +13,8 @@
 // section of code. Each block consists of a file address on a line
 // by itself followed by the text of the code on those lines.
 //
-// Uncover elides blocks that begin with a line that starts with
+// Uncover elides blocks that begin with, or are immediately preceded by,
+// a comment that starts with
 // “// unreachable”, “// untested”, “// Unreachable”, or “// Untested”.
 // The -a flag causes uncover to report these blocks too.
 //
@@ -171,8 +172,11 @@ Snippets:
 
 		snippet := reindent(src[startLo:endHi])
 		if !*showAll {
+			// Since Go 1.27, cmd/cover starts blocks after any leading
+			// comment, so include the comment lines right before the block.
+			marked := reindent(src[commentStart(src, startLo):endHi])
 			for _, skip := range skips {
-				if bytes.HasPrefix(snippet, skip) {
+				if bytes.HasPrefix(marked, skip) {
 					continue Snippets
 				}
 			}
@@ -205,6 +209,19 @@ var skips = [][]byte{
 	[]byte("\t// Untested"),
 	[]byte("\t// unreachable"),
 	[]byte("\t// untested"),
+}
+
+// commentStart returns the offset of the first of the comment lines
+// immediately preceding the line that starts at lo, or lo if there are none.
+func commentStart(src []byte, lo int) int {
+	for lo > 0 {
+		prev := bytes.LastIndexByte(src[:lo-1], '\n') + 1
+		if !bytes.HasPrefix(bytes.TrimSpace(src[prev:lo]), []byte("//")) {
+			break
+		}
+		lo = prev
+	}
+	return lo
 }
 
 func unimportant(s []byte) bool {
